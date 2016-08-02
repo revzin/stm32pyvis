@@ -41,8 +41,8 @@ def command(connection, text):
         print('[WARNING] OpenOCD: Telnet connection terminated by host!')
         return None
     except BrokenPipeError as bpe:
-        print('[INFO] some pipe is broke, so what')
-        return None
+        print('[INFO] OpenOCD: some pipe is broke, this is very bad and we exit NOW')
+        exit(-23145)
     if not result:
         print ('[WARNING] OpenOCD: Command timeout!')
         return None
