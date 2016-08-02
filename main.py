@@ -5,40 +5,29 @@ import threading
 
 import openocd
 import elftools
-#import plotter
+import plotter
 
 # --------------------------------------------------------------------------- #
 # main logic
 
 stuff_doer = None
+dynplotter = None
 connection = None
 var_dict = None
 var_name = None
 var_value = None
-interval = 0.1
-
-
-def plotter_thread():
-    plotwindow = plotter.DynamicPlotter()
-    plotwindow.run()
-    global var_value
-    while True:
-        print ("we shitfuck")
-        plotwindow.updateplot()
-        if not connection:
-            return
-        if var_value:
-            pass
-        time.sleep(interval)
+interval = 0.01
 
 
 def stuff_doer_thread():
-    global connection, var_dict, var_name, var_value, interval
+    global connection, var_dict, var_name, var_value, interval, dynplotter
     while True:
         if var_dict and var_name and connection:
             if var_name in var_dict.keys():
                 var_value = openocd.read_value(connection, var_dict[var_name], 32)
                 print(var_name + ' = {}'.format(var_value))
+                if dynplotter:
+                    dynplotter.append(var_value)
         else:
             if not connection:
                 print ('[INFO] No OpenOCD connection, Stuff Doer Thread exits...')
@@ -136,10 +125,9 @@ openocd.run_mcu(connection)
 stuff_doer = threading.Thread(target=stuff_doer_thread)
 stuff_doer.start()
 
-
-
-#plotter_thread = threading.Thread(target=plotter.run(10000))
-#plotter_thread.start()
+dynplotter = plotter.DynamicPlotter()
+plot_thread = threading.Thread(target = dynplotter.run)
+plot_thread.start()
 
 print('[INFO] GUI start...')
 tk_build()

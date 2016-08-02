@@ -1,67 +1,58 @@
-import numpy as np
+# Based on https://github.com/ap--/python-live-plotting,
+# thanks Andreas! Getting MPL to work rendered me powerless to code that myself
+
+from gi.repository import Gtk, GLib
+
+import collections
+import random
 import time
-import matplotlib
-matplotlib.use('TKAgg')
-#matplotlib.use('GTKAgg')
-from matplotlib import pyplot as plt
+import math
 
+class mpl:
+    from matplotlib.figure import Figure
+    from matplotlib.backends.backend_gtk3agg import FigureCanvasGTK3Agg as FigureCanvas
 
-def randomwalk(dims=(256, 256), n=20, sigma=5, alpha=0.95, seed=1):
-    """ A simple random walk with memory """
+class DynamicPlotter(Gtk.Window):
 
-    r, c = dims
-    gen = np.random.RandomState(seed)
-    pos = gen.rand(2, n) * ((r,), (c,))
-    old_delta = gen.randn(2, n) * sigma
+    def __init__(self, sampleinterval=0.01, timewindow=5., size=(600,350)):
+        # Gtk stuff
+        Gtk.Window.__init__(self, title='Dynamic Plotting with Matplotlib + Gtk3')
+        self.connect("destroy", lambda x : Gtk.main_quit())
+        self.set_default_size(*size)
+        # Data stuff
+        self._interval = int(sampleinterval*1000)
+        self._bufsize = int(timewindow/sampleinterval)
+        self.databuffer = collections.deque([0.0]*self._bufsize, self._bufsize)
+        self.new_data_value = 0
+        self.x = [sampleinterval*i for i in range(-self._bufsize+1,1)]
+        # MPL stuff
+        self.figure = mpl.Figure()
+        self.ax = self.figure.add_subplot(1, 1, 1)
+        self.ax.grid(True)
+        self.canvas = mpl.FigureCanvas(self.figure)
+        self.line, = self.ax.plot(self.x, self.databuffer)
+        # Gtk stuff
+        self.add(self.canvas)
+        self.canvas.show()
+        self.show_all()
 
-    while True:
-        delta = (1. - alpha) * gen.randn(2, n) * sigma + alpha * old_delta
-        pos += delta
-        for ii in range(n):
-            if not (0. <= pos[0, ii] < r):
-                pos[0, ii] = abs(pos[0, ii] % r)
-            if not (0. <= pos[1, ii] < c):
-                pos[1, ii] = abs(pos[1, ii] % c)
-        old_delta = delta
-        yield pos
+    def append(self, new_data):
+        self.new_data_value = new_data
 
+    def getdata(self):
+        return self.new_data_value
 
-def run(niter=10000):
-    """
-    Display the simulation using matplotlib, using blit() for speed
-    """
+    def reset(self):
+        self.databuffer.clear()
 
-    fig, ax = plt.subplots(1, 1)
-    ax.set_aspect('equal')
-    ax.set_xlim(0, 255)
-    ax.set_ylim(0, 255)
-    ax.hold(True)
-    rw = randomwalk()
-    x, y = next(rw)
+    def updateplot(self):
+        self.databuffer.append( self.getdata() )
+        self.line.set_ydata(self.databuffer)
+        self.ax.relim()
+        self.ax.autoscale_view(False, False, True)
+        self.canvas.draw()
+        return True
 
-    plt.show(False)
-    plt.draw()
-
-    # cache the background
-    background = fig.canvas.copy_from_bbox(ax.bbox)
-
-    points = ax.plot(x, y, 'o')[0]
-    tic = time.time()
-
-    for ii in range(niter):
-
-        # update the xy data
-        x, y = next(rw)
-        points.set_data(x, y)
-
-        # restore background
-        fig.canvas.restore_region(background)
-
-        # redraw just the points
-        ax.draw_artist(points)
-
-        # fill in the axes rectangle
-        fig.canvas.blit(ax.bbox)
-
-    plt.close(fig)
-    print("Average FPS: {:.2f}".format(niter / (time.time() - tic)))
+    def run(self):
+        GLib.timeout_add(self._interval, self.updateplot )
+        Gtk.main()

@@ -99,8 +99,8 @@ def launch(target_name):
 
     oocd = sp.Popen(['openocd', '-f', conf_file_stlink2, '-f', config_file_target])
 
-    print ("[INFO] Waiting 1 second for OpenOCD to do its' own stuff...")
-    time.sleep(1)
+    print ("[INFO] Waiting 2 seconds for OpenOCD to do its' own stuff...")
+    time.sleep(2)
 
     print ("[INFO] Connecting to OpenOCD TELNET...")
     oocd_conn = openocd_telnet_connect()
