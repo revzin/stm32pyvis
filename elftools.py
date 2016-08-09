@@ -1,7 +1,8 @@
 import subprocess as sp
 import os, re, random
 
-def get_var_names(elf_file_path):
+
+def get_vars_name_address(elf_file_path):
 
     def run_readelf(file_path):
         temp_file_name = str(random.randint(100000, 999999)) + '.out'
@@ -18,7 +19,7 @@ def get_var_names(elf_file_path):
             return None
         return temp_file_name
 
-    def var_parameters(temp_file_path):
+    def vars_name_address(temp_file_path):
 
         def addr_in_sram(addr):
             sram_base = 0x20000000
@@ -62,7 +63,7 @@ def get_var_names(elf_file_path):
     if not readelf_out_path:
         print('[ERROR] Readelf failed')
         return None
-    rt = var_parameters(readelf_out_path)
+    rt = vars_name_address(readelf_out_path)
     os.remove(readelf_out_path)
     return rt
 

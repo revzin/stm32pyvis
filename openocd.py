@@ -7,6 +7,7 @@ SIGNED = 0
 UNSIGNED = 1
 
 def pkill():
+    print ('[INFO] Signalling OpenOCD to exit')
     sp.call(['pkill', 'openocd'])
 
 def run_mcu(connection):
@@ -23,7 +24,8 @@ def read_value(connection, address, size_bits, signedness = SIGNED):
 
     output = command(connection, size2cmd[size_bits] + ' ' + hex(address))
     if not output:
-        print ('[WARNING] Failed to read at address {}'.format(hex(address)))
+        print('[WARNING] Failed to read at address {}'.format(hex(address)))
+        return None
     else:
         return int(re.split(': ', output)[-1], 16)
 
@@ -34,14 +36,15 @@ def command(connection, text):
 
     text += '\n'
     try:
-        connection.write(text.encode())
+        text = text.encode()
+        connection.write(text)
         connection.read_until('\r\n'.encode(), 1) # don't echo the command itself back
         result = connection.read_until('> '.encode(), 1)
     except EOFError as eoe:
         print('[WARNING] OpenOCD: Telnet connection terminated by host!')
         return None
     except BrokenPipeError as bpe:
-        print('[INFO] OpenOCD: some pipe is broke, this is very bad and we exit NOW')
+        print('[INFO] OpenOCD: some pipe is broke, this is, it turned out, very bad and we exit NOW')
         exit(-23145)
     if not result:
         print ('[WARNING] OpenOCD: Command timeout!')
@@ -77,18 +80,38 @@ def launch(target_name):
     def openocd_telnet_connect():
         host = 'localhost'
         port = 4444
-        try:
-            oocd_conn = tl.Telnet(host=host, port=port, timeout=1)
-        except ConnectionRefusedError as cre:
-            return None
 
-        hello = str(oocd_conn.read_very_eager())
+        counter = 0
+        counter_max = 5
+        oocd_conn = None
 
-        if 'Open On-Chip Debugger' not in hello:
-            print('[ERROR] Unexpected response from TELNET 4444.')
-            return None
+        while True:
+            try:
+                oocd_conn = tl.Telnet(host=host, port=port, timeout=1)
+            except ConnectionRefusedError as cre:
+                print('[ERROR] OpenOCD: Telnet 4444 refused')
+                return None
 
-        return oocd_conn
+            time.sleep(1)
+
+            hello = str(oocd_conn.read_very_eager())
+
+            if 'Open On-Chip Debugger' not in hello:
+                print('[WARINING] Unexpected response from TELNET 4444: {}'.format(hello))
+                counter += 1
+
+                if (counter == counter_max):
+                    print('[ERROR] Connection to OpenOCD failed after {} tries, aborting...'.format(counter))
+
+                    return None
+
+                print("[INFO] Retrying connection, try {}".format(counter))
+
+                time.sleep(counter)
+            else:
+                print("[INFO] Successfully connected to OpenOCD")
+                return oocd_conn
+
 
     config_file_target = target2config(target_name)
 
