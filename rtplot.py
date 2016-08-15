@@ -17,13 +17,15 @@ class WatchVariable:
         self.values = collections.deque([0.0] * self.buf_size, self.buf_size)
         self.address = address
 
-        self.track_start = (datetime.datetime.now(), time.clock())
+        self.track_start = (datetime.datetime.now(), time.time())
 
         self._locked = 0
 
     def append_value(self, new_data):
+        while self._locked:
+            pass
         self._locked = 1
-        self.times.append(time.clock())
+        self.times.append(time.time())
         self.values.append(new_data)
         self._locked = 0
 
@@ -67,7 +69,7 @@ class VariablePlot:
             return False
 
         # calculate current time - sample time
-        current_time = time.clock()
+        current_time = time.time()
         deltas = current_time - sample_times
 
         if (deltas >= 0.0).all():
@@ -107,11 +109,11 @@ class VariablePlot:
 
 
 class PlotDispatch():
-    def __init__(self, base_layout, graph_update_rate=0.1, time_window=5):
+    def __init__(self, base_layout, graph_update_rate=0.01, time_window=5):
         assert isinstance(base_layout, ps.QtGui.QLayout)
 
         self.plots = {}
-        start_time = time.clock()
+        start_time = time.time()
         self._stop = 0
         self._rate = graph_update_rate
         self._calc_thread = threading.Thread(target=self._calc_display_data)
@@ -125,7 +127,7 @@ class PlotDispatch():
 
         assert isinstance(var, WatchVariable)
 
-        new_plot = VariablePlot(var, time.clock())
+        new_plot = VariablePlot(var, time.time())
         self.plots[var] = new_plot
         log.info("Started tracking {} at {}".format(var.name, str(var.track_start[0])))
         self._layout.addWidget(new_plot.p_widget)
@@ -158,6 +160,11 @@ class PlotDispatch():
             self._working = 0
 
             time.sleep(self._rate)
+
+        # remove windows
+        for variable in self.plots.keys():
+            self.plots[variable].p_widget.deleteLater()
+
 
 
 if __name__ == "__main__":

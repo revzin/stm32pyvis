@@ -27,8 +27,11 @@ def read_value(connection, address, size_bits, signedness = SIGNED):
         print('[WARNING] Failed to read at address {}'.format(hex(address)))
         return None
     else:
-        return int(re.split(': ', output)[-1], 16)
-
+        try:
+            return int(re.split(': ', output)[-1], 16)
+        except ValueError as ve:
+            print('[ERROR] Failed reading variable {}: unexpected OpenOCD output {}', address, output)
+            return None
 
 def command(connection, text):
     assert isinstance(connection, tl.Telnet)

@@ -5,20 +5,20 @@ import rtplot
 import openocd
 import logging
 
+import cProfile, pstats, io
+
 
 class VarTracker:
-    def __init__(self, oocd_conn, tracking_delay = 0.1):
-        assert isinstance(oocd_conn, openocd.tl.Telnet)
-        assert oocd_conn
-
+    def __init__(self, tracking_delay = 0.01):
         self.vars = []
-        self.oocd = oocd_conn
+        self.oocd = openocd.launch("stm32f4")
         self._stop = 0
         self.thread = threading.Thread(target = self.run)
         self.track_delay = tracking_delay
 
     def start(self):
         self.thread.start()
+        openocd.run_mcu(self.oocd)
 
     def add_track_var(self, var):
         assert isinstance(var, rtplot.WatchVariable)
@@ -31,14 +31,20 @@ class VarTracker:
 
     def run(self):
         while True:
+            while not self.oocd:
+                self.oocd = openocd.launch("stm32f4")
+                time.sleep(3)
+
             for var in self.vars:
-                value = openocd.read_value(self.oocd_conn, var.address)
-                if not value:
+
+                value = openocd.read_value(self.oocd, var.address, 32)
+
+                if value == None:
                     logging.error("Failed to read variable {}".format(var.name))
                 else:
-                    var.append(value)
+                    var.append_value(value)
 
-            time.sleep(self.tracking_delay)
+            time.sleep(self.track_delay)
 
             if self._stop:
                 break
