@@ -13,9 +13,11 @@ def get_vars_name_address(elf_file_path):
             sp.check_call(['readelf', '-s', file_path], stdout=file)
         except sp.CalledProcessError as err:
             print('[ERROR] readelf failed with code ', err.returncode)
+            os.remove(temp_file_name)
             return None
         except BrokenPipeError as bpe:
             print('[ERROR] Some weird pipe seems broken somewhere, exiting')
+            os.remove(temp_file_name)
             return None
         return temp_file_name
 
